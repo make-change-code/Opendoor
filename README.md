@@ -277,16 +277,35 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## 🔧 Troubleshooting
 
 ### Common Issues
-- **Port conflicts**: Ensure ports 50063, 50064, and 6379 are available
-- **Docker issues**: Check Docker is running and has sufficient resources
+- **Package not found**: Ensure the package is published to npm first
+- **Permission errors**: Try running with elevated permissions if needed
 - **OpenHands connection**: Verify both `sse_servers` and `stdio_servers` arrays are present
-- **Health check fails**: Check Redis is running and accessible
+- **STDIO timeout**: Increase timeout in OpenHands configuration if needed
 
 ### Debug Steps
-1. Check container logs: `docker logs opendoor-mcp`
-2. Verify Redis: `redis-cli -p 6379 ping`
-3. Test endpoints: `curl http://localhost:50063/health`
-4. Check frontend: `curl http://localhost:50064`
+1. Test package: `npx opendoor-mcp` (should start and wait for input)
+2. Check package version: `npm ls opendoor-mcp -g` (if installed globally)
+3. Verify OpenHands config syntax
+4. Check npm registry: https://www.npmjs.com/package/opendoor-mcp
+
+## 📦 Publishing
+
+### Automatic Publishing (GitHub Actions)
+1. Create a release on GitHub
+2. The workflow automatically builds and publishes to npm
+3. Package becomes available via `npx opendoor-mcp`
+
+### Manual Publishing
+```bash
+npm login
+npm run build
+npm publish
+```
+
+### Setting up NPM_TOKEN
+1. Create an npm account and get an API token
+2. Add `NPM_TOKEN` to your GitHub repository secrets
+3. The workflow will automatically publish on releases
 
 ## 🙏 Acknowledgments
 
