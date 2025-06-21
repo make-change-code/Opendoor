@@ -21,10 +21,10 @@ A production-grade Model Context Protocol (MCP) server that provides secure code
 ### NPX (Recommended)
 ```bash
 # Run directly with npx (no installation required)
-npx @814bdg/opendoor-mcp
+npx opendoor-mcp
 
 # Or install globally first
-npm install -g @814bdg/opendoor-mcp
+npm install -g opendoor-mcp
 opendoor-mcp
 ```
 
@@ -51,7 +51,7 @@ npm start
     {
       "name": "opendoor",
       "command": "npx",
-      "args": ["-y", "@814bdg/opendoor-mcp"]
+      "args": ["-y", "opendoor-mcp"]
     }
   ]
 }
@@ -286,7 +286,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 1. Test package: `npx opendoor-mcp` (should start and wait for input)
 2. Check package version: `npm ls opendoor-mcp -g` (if installed globally)
 3. Verify OpenHands config syntax
-4. Check npm registry: https://www.npmjs.com/package/@814bdg/opendoor-mcp
+4. Check npm registry: https://www.npmjs.com/package/opendoor-mcp
 
 ## 📦 Publishing
 
