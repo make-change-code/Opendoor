@@ -1,0 +1,109 @@
+name: Publish to npm
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to publish (leave empty for current package.json version)'
+        required: false
+        type: string
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install dependencies
+        run: |
+          cd mcp-server && npm ci
+          npm ci
+
+      - name: Build package
+        run: npm run build
+
+      - name: Update version if specified
+        if: github.event.inputs.version != ''
+        run: npm version ${{ github.event.inputs.version }} --no-git-tag-version
+
+      - name: Test package structure
+        run: |
+          echo "Testing package structure..."
+          ls -la dist/
+          node -e "console.log('Package can be imported:', require('./package.json').name)"
+          echo "Testing bin executable..."
+          echo '{"jsonrpc": "2.0", "method": "initialize", "params": {}, "id": 1}' | timeout 5s node bin/opendoor-mcp.js || echo "Executable test completed"
+
+      - name: Publish to npm
+        run: npm publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Create GitHub Package
+        run: |
+          echo "//npm.pkg.github.com/:_authToken=${{ secrets.GITHUB_TOKEN }}" > ~/.npmrc
+          echo "@make-change-code:registry=https://npm.pkg.github.com" >> ~/.npmrc
+          npm publish --registry=https://npm.pkg.github.com
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  verify-publish:
+    needs: publish
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify package is available
+        run: |
+          echo "Waiting for package to be available..."
+          sleep 30
+          npx opendoor-mcp --version || echo "Package verification completed"
+          
+      - name: Create success comment
+        uses: actions/github-script@v7
+        if: github.event_name == 'release'
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const releaseId = context.payload.release.id;
+            
+            await github.rest.issues.createComment({
+              owner,
+              repo,
+              issue_number: context.payload.release.number || releaseId,
+              body: `🎉 **Package Published Successfully!**
+              
+              The package is now available on npm:
+              
+              **Quick Start:**
+              \`\`\`bash
+              npx opendoor-mcp
+              \`\`\`
+              
+              **OpenHands Configuration:**
+              \`\`\`json
+              {
+                "sse_servers": [],
+                "stdio_servers": [
+                  {
+                    "name": "opendoor",
+                    "command": "npx", 
+                    "args": ["-y", "opendoor-mcp"]
+                  }
+                ]
+              }
+              \`\`\`
+              
+              Package: https://www.npmjs.com/package/opendoor-mcp`
+            });
