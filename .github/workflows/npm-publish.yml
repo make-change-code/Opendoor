@@ -99,11 +99,11 @@ jobs:
                   {
                     "name": "opendoor",
                     "command": "npx", 
-                    "args": ["-y", "opendoor-mcp"]
+                    "args": ["-y", "@814bdg/opendoor-mcp"]
                   }
                 ]
               }
               \`\`\`
               
-              Package: https://www.npmjs.com/package/opendoor-mcp`
+              Package: https://www.npmjs.com/package/@814bdg/opendoor-mcp`
             });
