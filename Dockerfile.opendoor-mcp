@@ -1,4 +1,4 @@
-# Dockerfile for Railway deployment with local execution
+# Dockerfile.opendoor-mcp - Production-ready MCP Server
 FROM node:22-alpine
 
 # Install system dependencies for local execution environment
@@ -101,7 +101,7 @@ RUN mkdir -p \
     /var/run/redis \
     /var/lib/redis
 
-# Copy and install dependencies - KEEP IT SIMPLE
+# Copy and install dependencies
 COPY mcp-server/package*.json ./
 RUN npm install
 
@@ -143,7 +143,7 @@ RUN echo '[supervisord]' > /etc/supervisord.conf && \
 
 # Create startup script
 RUN echo '#!/bin/bash' > /start.sh && \
-    echo 'export PORT=${PORT:-3000}' >> /start.sh && \
+    echo 'export PORT=${PORT:-50063}' >> /start.sh && \
     echo 'export NODE_ENV=production' >> /start.sh && \
     echo 'export WEB_INTERFACE=true' >> /start.sh && \
     echo 'export MCP_TRANSPORT=sse' >> /start.sh && \
@@ -157,19 +157,20 @@ RUN echo '#!/bin/bash' > /start.sh && \
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-    CMD curl -f http://localhost:${PORT:-3000}/health || exit 1
+    CMD curl -f http://localhost:${PORT:-50063}/health || exit 1
 
 # Environment variables for local execution
 ENV NODE_ENV=production \
     WEB_INTERFACE=true \
     MCP_TRANSPORT=sse \
     HOST=0.0.0.0 \
+    PORT=50063 \
     REDIS_URL=redis://localhost:6379 \
     PYTHONPATH=/usr/lib/python3.11/site-packages \
     PATH=/usr/local/bin:/usr/bin:/bin:/app/node_modules/.bin \
     JAVA_HOME=/usr/lib/jvm/java-17-openjdk \
     GOPATH=/usr/local/go
 
-EXPOSE 3000
+EXPOSE 50063
 
 CMD ["/start.sh"]

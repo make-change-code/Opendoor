@@ -9,20 +9,17 @@
     "npm": ">=8.0.0"
   },
   "scripts": {
-    "start": "npm run start --workspace=mcp-server",
-    "dev": "npm run dev --workspace=mcp-server", 
-    "build": "npm run build --workspace=mcp-server",
-    "test": "npm run test --workspace=mcp-server",
-    "lint": "npm run lint --workspace=mcp-server",
-    "lint:fix": "npm run lint:fix --workspace=mcp-server",
-    "health": "curl -f http://localhost:3000/health || exit 1",
-    "clean": "npm run clean --workspace=mcp-server",
-    "setup": "npm install && npm run build",
-    "postinstall": "npm run build"
+    "start": "cd mcp-server && npm start",
+    "dev": "cd mcp-server && npm run dev", 
+    "build": "cd mcp-server && npm run build",
+    "test": "cd mcp-server && npm test",
+    "lint": "cd mcp-server && npm run lint",
+    "lint:fix": "cd mcp-server && npm run lint:fix",
+    "health": "curl -f http://localhost:50063/health || exit 1",
+    "clean": "cd mcp-server && npm run clean",
+    "setup": "cd mcp-server && npm install && npm run build",
+    "install:mcp": "cd mcp-server && npm install"
   },
-  "workspaces": [
-    "mcp-server"
-  ],
   "keywords": [
     "mcp",
     "model-context-protocol",
@@ -36,7 +33,6 @@
     "browser-automation",
     "production-grade",
     "high-performance",
-    "railway",
     "security",
     "enterprise",
     "multi-language",
@@ -51,18 +47,10 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/smishi204/Opendoor.git"
+    "url": "https://github.com/make-change-code/Opendoor.git"
   },
   "bugs": {
-    "url": "https://github.com/smishi204/Opendoor/issues"
+    "url": "https://github.com/make-change-code/Opendoor/issues"
   },
-  "homepage": "https://github.com/smishi204/Opendoor#readme",
-  "funding": {
-    "type": "github",
-    "url": "https://github.com/sponsors/openhands-mentat-cli"
-  },
-  "volta": {
-    "node": "22.0.0",
-    "npm": "10.5.1"
-  }
+  "homepage": "https://github.com/make-change-code/Opendoor#readme"
 }
