@@ -1,24 +1,55 @@
 {
-  "name": "opendoor-mcp-server",
+  "name": "opendoor-mcp",
   "version": "2.0.0",
   "description": "Production-grade MCP server with multi-language code execution, VS Code integration, and browser automation",
-  "main": "mcp-server/dist/index.js",
+  "main": "dist/index.js",
   "type": "module",
+  "bin": {
+    "opendoor-mcp": "./bin/opendoor-mcp.js"
+  },
   "engines": {
     "node": ">=18.0.0",
     "npm": ">=8.0.0"
   },
   "scripts": {
-    "start": "cd mcp-server && npm start",
-    "dev": "cd mcp-server && npm run dev", 
-    "build": "cd mcp-server && npm run build",
-    "test": "cd mcp-server && npm test",
-    "lint": "cd mcp-server && npm run lint",
-    "lint:fix": "cd mcp-server && npm run lint:fix",
-    "health": "curl -f http://localhost:50063/health || exit 1",
-    "clean": "cd mcp-server && npm run clean",
-    "setup": "cd mcp-server && npm install && npm run build",
-    "install:mcp": "cd mcp-server && npm install"
+    "start": "node dist/index.js",
+    "dev": "tsx mcp-server/src/index.ts",
+    "build": "mkdir -p dist && tsc -p mcp-server/tsconfig.json && cp -r mcp-server/dist/* dist/",
+    "test": "jest",
+    "lint": "eslint mcp-server/src/**/*.ts",
+    "lint:fix": "eslint mcp-server/src/**/*.ts --fix",
+    "clean": "rm -rf dist",
+    "prepack": "npm run build",
+    "prepublishOnly": "npm run build"
+  },
+  "files": [
+    "dist/**/*",
+    "bin/**/*",
+    "README.md"
+  ],
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^0.6.0",
+    "dockerode": "^4.0.0",
+    "ioredis": "^5.3.2",
+    "joi": "^17.11.0",
+    "node-cache": "^5.1.2",
+    "p-queue": "^7.4.1",
+    "rate-limiter-flexible": "^7.1.1",
+    "typescript": "^5.2.2",
+    "uuid": "^9.0.1",
+    "winston": "^3.11.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/dockerode": "^3.3.39",
+    "@types/jest": "^29.5.5",
+    "@types/node": "^20.17.57",
+    "@types/uuid": "^9.0.8",
+    "@typescript-eslint/eslint-plugin": "^6.7.0",
+    "@typescript-eslint/parser": "^6.7.0",
+    "eslint": "^8.50.0",
+    "jest": "^29.7.0",
+    "tsx": "^4.6.0"
   },
   "keywords": [
     "mcp",
@@ -41,7 +72,9 @@
     "typescript",
     "java",
     "rust",
-    "go"
+    "go",
+    "openhands",
+    "stdio"
   ],
   "author": "Opendoor Team",
   "license": "MIT",
@@ -52,5 +85,8 @@
   "bugs": {
     "url": "https://github.com/make-change-code/Opendoor/issues"
   },
-  "homepage": "https://github.com/make-change-code/Opendoor#readme"
+  "homepage": "https://github.com/make-change-code/Opendoor#readme",
+  "publishConfig": {
+    "access": "public"
+  }
 }

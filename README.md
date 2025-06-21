@@ -18,96 +18,62 @@ A production-grade Model Context Protocol (MCP) server that provides secure code
 
 ## 🚀 Quick Start
 
-### Port Configuration
-- **Main MCP Server**: http://localhost:50063
-- **Configuration UI**: http://localhost:50064  
-- **Redis**: localhost:6379 (internal only)
+### NPX (Recommended)
+```bash
+# Run directly with npx (no installation required)
+npx opendoor-mcp
 
-### Option A: Docker Compose (Recommended)
+# Or install globally first
+npm install -g opendoor-mcp
+opendoor-mcp
+```
+
+### Local Development
 ```bash
 git clone https://github.com/make-change-code/Opendoor.git
 cd Opendoor
-docker-compose -f docker-compose.production.yml up -d
+npm install
+npm run build
+npm start
 ```
-
-### Option B: Direct Docker Run
-```bash
-docker run -d --name opendoor-mcp \
-  -p 50063:50063 \
-  -e MCP_TRANSPORT=sse \
-  ghcr.io/make-change-code/opendoor-opendoor-mcp:latest
-```
-
-### Option C: Deploy on Railway
-```bash
-# Install Railway CLI and deploy
-curl -fsSL https://railway.app/install.sh | sh
-railway login
-railway init
-railway up
-```
-
-### Verify Installation
-```bash
-curl http://localhost:50063/health
-```
-
-Access the configuration UI at http://localhost:50064 for easy OpenHands setup.
 
 
 
 ## 🔗 OpenHands Integration
 
-**Important**: OpenHands requires both `sse_servers` and `stdio_servers` arrays in the configuration, even if one is empty.
+**Important**: OpenHands requires both `sse_servers` and `stdio_servers` arrays in the configuration.
 
-### SSE Configuration (Recommended)
-For real-time streaming connections:
-
-```json
-{
-  "sse_servers": [
-    "http://localhost:50063/sse"
-  ],
-  "stdio_servers": []
-}
-```
-
-### STDIO Configuration  
-For command-line style interactions:
-
+### STDIO Configuration (npx)
 ```json
 {
   "sse_servers": [],
   "stdio_servers": [
     {
       "name": "opendoor",
-      "command": "docker",
-      "args": [
-        "run", "-i", "--rm", "-p", "50063:50063",
-        "ghcr.io/make-change-code/opendoor-opendoor-mcp:latest"
-      ]
+      "command": "npx",
+      "args": ["-y", "opendoor-mcp"]
     }
   ]
 }
 ```
 
-### Production Configuration (HTTPS)
+### STDIO Configuration (global install)
 ```json
 {
-  "sse_servers": [
-    "https://your-domain.com:50063/sse"
-  ],
-  "stdio_servers": [],
-  "timeout": 30000,
-  "retry_attempts": 3
+  "sse_servers": [],
+  "stdio_servers": [
+    {
+      "name": "opendoor",
+      "command": "opendoor-mcp"
+    }
+  ]
 }
 ```
 
 ### Testing Your Configuration
-1. Start the server: `docker-compose -f docker-compose.production.yml up -d`
-2. Verify health: `curl http://localhost:50063/health`
-3. Test SSE endpoint: `curl http://localhost:50063/sse`
-4. Apply configuration to OpenHands and test connection
+1. Test the package: `npx opendoor-mcp` (should start and wait for STDIO input)
+2. Press Ctrl+C to exit
+3. Apply configuration to OpenHands and test connection
 
 ## 🛠️ Available Tools
 
@@ -170,7 +136,7 @@ git clone https://github.com/make-change-code/Opendoor.git
 cd Opendoor
 
 # Install dependencies
-cd mcp-server && npm install
+npm install
 
 # Start in development mode
 npm run dev
@@ -184,13 +150,10 @@ npm start
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `MCP_TRANSPORT` | `sse` | Transport type: `sse` or `stdio` |
-| `HOST` | `0.0.0.0` | Server host |
-| `PORT` | `50063` | Server port |
-| `REDIS_URL` | `redis://localhost:6379` | Redis connection URL |
+| `MCP_TRANSPORT` | `stdio` | Transport type (always stdio) |
 | `NODE_ENV` | `production` | Environment mode |
-| `LOG_LEVEL` | `info` | Logging level |
-| `WEB_INTERFACE` | `true` | Enable web interface |
+| `LOG_LEVEL` | `error` | Logging level |
+| `REDIS_URL` | `redis://localhost:6379` | Redis connection URL (if needed) |
 
 ## 🐳 Docker Images
 
