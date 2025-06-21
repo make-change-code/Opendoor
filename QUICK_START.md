@@ -2,8 +2,8 @@
 
 ## Port Configuration
 - **Main MCP Server**: http://localhost:50063
+- **Configuration UI**: http://localhost:50064
 - **Redis**: localhost:6379 (internal only)
-- **Documentation**: http://localhost:50063
 
 ## 1. Start the Server
 
