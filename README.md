@@ -1,9 +1,9 @@
-# 🚪 Opendoor - Multi - MCP Server
+# 🚪 Opendoor MCP Server
 
-[![Build and Push Docker Images](https://github.com/openhands-mentat-cli/Opendoor/actions/workflows/docker-build.yml/badge.svg)](https://github.com/openhands-mentat-cli/Opendoor/actions/workflows/docker-build.yml)
+[![Build and Push Docker Images](https://github.com/make-change-code/Opendoor/actions/workflows/docker-build.yml/badge.svg)](https://github.com/make-change-code/Opendoor/actions/workflows/docker-build.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-A production-grade Model Context Protocol (MCP) server that provides secure code execution, VS Code integration, and browser automation capabilities for Large Language Models.
+A production-grade Model Context Protocol (MCP) server that provides secure code execution, VS Code integration, and browser automation capabilities for Large Language Models and OpenHands.
 
 ## 🌟 Features
 
@@ -18,8 +18,27 @@ A production-grade Model Context Protocol (MCP) server that provides secure code
 
 ## 🚀 Quick Start
 
-### Deploy on Railway (Recommended for Production)
+### Port Configuration
+- **Main MCP Server**: http://localhost:50063
+- **Configuration UI**: http://localhost:50064  
+- **Redis**: localhost:6379 (internal only)
 
+### Option A: Docker Compose (Recommended)
+```bash
+git clone https://github.com/make-change-code/Opendoor.git
+cd Opendoor
+docker-compose -f docker-compose.production.yml up -d
+```
+
+### Option B: Direct Docker Run
+```bash
+docker run -d --name opendoor-mcp \
+  -p 50063:50063 \
+  -e MCP_TRANSPORT=sse \
+  ghcr.io/make-change-code/opendoor-opendoor-mcp:latest
+```
+
+### Option C: Deploy on Railway
 ```bash
 # Install Railway CLI and deploy
 curl -fsSL https://railway.app/install.sh | sh
@@ -28,40 +47,22 @@ railway init
 railway up
 ```
 
-**Important**: Railway will automatically expose the web interface on the assigned port. The application includes:
-- Main web UI with documentation and configuration
-- Health endpoints for monitoring
-- SSE transport for MCP connections
-- Redis for session management (internal only)
-
-### Using Docker (Local Development)
-
+### Verify Installation
 ```bash
-# Pull and run the latest version
-docker run -d --name opendoor-mcp \
-  -p 50063:50063 \
-  -e MCP_TRANSPORT=sse \
-  ghcr.io/make-change-code/opendoor/opendoor-mcp:latest
-
-# Access documentation at http://localhost:50063
-# MCP endpoint available at http://localhost:50063/sse
+curl http://localhost:50063/health
 ```
 
-### Using Docker Compose
-
-```bash
-git clone https://github.com/smishi204/Opendoor.git
-cd Opendoor
-docker-compose -f docker-compose.production.yml up -d
-```
+Access the configuration UI at http://localhost:50064 for easy OpenHands setup.
 
 
 
-## 🔗 LLM Integration
+## 🔗 OpenHands Integration
 
-### For Claude Desktop, ChatGPT, and other MCP clients:
+**Important**: OpenHands requires both `sse_servers` and `stdio_servers` arrays in the configuration, even if one is empty.
 
-**OpenHands SSE Configuration**:
+### SSE Configuration (Recommended)
+For real-time streaming connections:
+
 ```json
 {
   "sse_servers": [
@@ -71,7 +72,9 @@ docker-compose -f docker-compose.production.yml up -d
 }
 ```
 
-**OpenHands STDIO Configuration**:
+### STDIO Configuration  
+For command-line style interactions:
+
 ```json
 {
   "sse_servers": [],
@@ -81,12 +84,30 @@ docker-compose -f docker-compose.production.yml up -d
       "command": "docker",
       "args": [
         "run", "-i", "--rm", "-p", "50063:50063",
-        "ghcr.io/make-change-code/opendoor/opendoor-mcp:latest"
+        "ghcr.io/make-change-code/opendoor-opendoor-mcp:latest"
       ]
     }
   ]
 }
 ```
+
+### Production Configuration (HTTPS)
+```json
+{
+  "sse_servers": [
+    "https://your-domain.com:50063/sse"
+  ],
+  "stdio_servers": [],
+  "timeout": 30000,
+  "retry_attempts": 3
+}
+```
+
+### Testing Your Configuration
+1. Start the server: `docker-compose -f docker-compose.production.yml up -d`
+2. Verify health: `curl http://localhost:50063/health`
+3. Test SSE endpoint: `curl http://localhost:50063/sse`
+4. Apply configuration to OpenHands and test connection
 
 ## 🛠️ Available Tools
 
@@ -145,11 +166,11 @@ Opendoor/
 
 ```bash
 # Clone the repository
-git clone https://github.com/openhands-mentat-cli/Opendoor.git
-cd Opendoor/mcp-server
+git clone https://github.com/make-change-code/Opendoor.git
+cd Opendoor
 
 # Install dependencies
-npm install
+cd mcp-server && npm install
 
 # Start in development mode
 npm run dev
@@ -165,10 +186,11 @@ npm start
 |----------|---------|-------------|
 | `MCP_TRANSPORT` | `sse` | Transport type: `sse` or `stdio` |
 | `HOST` | `0.0.0.0` | Server host |
-| `PORT` | `3000` | Server port |
+| `PORT` | `50063` | Server port |
 | `REDIS_URL` | `redis://localhost:6379` | Redis connection URL |
 | `NODE_ENV` | `production` | Environment mode |
 | `LOG_LEVEL` | `info` | Logging level |
+| `WEB_INTERFACE` | `true` | Enable web interface |
 
 ## 🐳 Docker Images
 
@@ -203,10 +225,10 @@ npm start
 
 ```bash
 # Basic health check
-curl http://localhost:3000/health
+curl http://localhost:50063/health
 
 # Detailed system status
-curl http://localhost:3000/health | jq
+curl http://localhost:50063/health | jq
 ```
 
 ### Metrics
@@ -284,10 +306,24 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 🆘 Support
 
-- **Documentation**: [http://localhost:3001](http://localhost:3001) (when running)
-- **Issues**: [GitHub Issues](https://github.com/openhands-mentat-cli/Opendoor/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/openhands-mentat-cli/Opendoor/discussions)
+- **Configuration UI**: [http://localhost:50064](http://localhost:50064) (when running)
+- **Documentation**: [http://localhost:50063](http://localhost:50063) (when running)
+- **Issues**: [GitHub Issues](https://github.com/make-change-code/Opendoor/issues)
 - **Security**: Report security issues via GitHub Security Advisories
+
+## 🔧 Troubleshooting
+
+### Common Issues
+- **Port conflicts**: Ensure ports 50063, 50064, and 6379 are available
+- **Docker issues**: Check Docker is running and has sufficient resources
+- **OpenHands connection**: Verify both `sse_servers` and `stdio_servers` arrays are present
+- **Health check fails**: Check Redis is running and accessible
+
+### Debug Steps
+1. Check container logs: `docker logs opendoor-mcp`
+2. Verify Redis: `redis-cli -p 6379 ping`
+3. Test endpoints: `curl http://localhost:50063/health`
+4. Check frontend: `curl http://localhost:50064`
 
 ## 🙏 Acknowledgments
 
