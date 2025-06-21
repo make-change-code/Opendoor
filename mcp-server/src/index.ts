@@ -2,10 +2,7 @@
 
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js';
 import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
-import express from 'express';
-import cors from 'cors';
 import { Logger } from './utils/Logger.js';
 import { ConfigService } from './services/ConfigService.js';
 import { SessionManager } from './session/SessionManager.js';
@@ -51,14 +48,14 @@ async function initializeServices(): Promise<ServiceContainer> {
       Promise.resolve(new HealthService())
     ]);
 
-    const bootTime = Date.now() - startTime;
-    logger.info(`✅ Services initialized in ${bootTime}ms`);
+    const initTime = Date.now() - startTime;
+    logger.info(`✅ All services initialized in ${initTime}ms`);
 
     return {
-      configService,
       sessionManager,
       executionManager,
       securityManager,
+      configService,
       healthService
     };
   } catch (error) {
@@ -70,22 +67,17 @@ async function initializeServices(): Promise<ServiceContainer> {
 function createServer(): Server {
   const server = new Server(
     {
-      name: 'opendoor-mcp-server',
-      version: '2.0.0',
+      name: "opendoor-mcp",
+      version: "2.0.0",
     },
     {
       capabilities: {
         tools: {},
-        prompts: {},
-        resources: {
-          subscribe: false,
-          listChanged: false
-        }
       },
     }
   );
 
-  // Tool handlers
+  // List available tools
   server.setRequestHandler(ListToolsRequestSchema, async () => {
     return {
       tools: [
@@ -93,11 +85,12 @@ function createServer(): Server {
         createVSCodeSessionTool.definition,
         createPlaywrightSessionTool.definition,
         manageSessionsTool.definition,
-        systemHealthTool.definition
-      ]
+        systemHealthTool.definition,
+      ],
     };
   });
 
+  // Handle tool execution
   server.setRequestHandler(CallToolRequestSchema, async (request) => {
     if (!services) {
       throw new Error('Services not initialized');
@@ -126,314 +119,7 @@ function createServer(): Server {
     }
   });
 
-  // Note: Prompt and Resource handlers would be added here when supported by the MCP SDK
-  // For now, we focus on the core tool functionality
-
   return server;
-}
-
-async function startWebInterface(port: number): Promise<void> {
-  const app = express();
-  
-  app.use(cors());
-  app.use(express.json());
-
-  // Health endpoint
-  app.get('/health', async (req, res) => {
-    try {
-      const healthStatus = services ? await services.healthService.getHealthStatus() : null;
-      res.json({ 
-        status: healthStatus?.status || 'initializing', 
-        timestamp: new Date().toISOString(),
-        services: services ? {
-          sessionManager: 'ready',
-          executionManager: 'ready',
-          healthService: 'ready'
-        } : {}
-      });
-    } catch (error) {
-      res.status(500).json({
-        status: 'error',
-        error: error instanceof Error ? error.message : 'Unknown error'
-      });
-    }
-  });
-
-  // MCP configuration endpoints
-  app.get('/config/stdio', (req, res) => {
-    res.json({
-      mcpServers: {
-        "opendoor": {
-          command: "node",
-          args: ["dist/index.js"]
-        }
-      }
-    });
-  });
-
-  // SSE endpoint for MCP transport
-  app.get('/sse', (req, res) => {
-    if (!services) {
-      return res.status(503).json({ error: 'Services not initialized' });
-    }
-
-    // Set up SSE headers
-    res.setHeader('Content-Type', 'text/event-stream');
-    res.setHeader('Cache-Control', 'no-cache');
-    res.setHeader('Connection', 'keep-alive');
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Headers', 'Cache-Control');
-
-    // Create SSE transport for this connection
-    const sseTransport = new SSEServerTransport('/sse', res);
-    
-    // Create a new server instance for this SSE connection
-    const sseServer = createServer();
-    
-    // Connect the server to the SSE transport
-    sseServer.connect(sseTransport).catch((error) => {
-      logger.error('SSE connection error:', error);
-      res.end();
-    });
-
-    // Handle client disconnect
-    req.on('close', () => {
-      logger.debug('SSE client disconnected');
-      sseServer.close().catch(console.error);
-    });
-  });
-
-  // Documentation page
-  app.get('/', (req, res) => {
-    const baseUrl = `${req.protocol}://${req.get('host')}`;
-    res.send(generateDocumentationHTML(baseUrl));
-  });
-
-  return new Promise<void>((resolve) => {
-    app.listen(port, '0.0.0.0', () => {
-      logger.info(`📚 Web interface started on http://localhost:${port}`);
-      resolve();
-    });
-  });
-}
-
-function generateDocumentationHTML(baseUrl: string): string {
-  const stdioConfig = {
-    mcpServers: {
-      "opendoor": {
-        command: "node",
-        args: ["dist/index.js"]
-      }
-    }
-  };
-
-  const sseConfig = {
-    mcpServers: {
-      "opendoor": {
-        command: "npx",
-        args: ["-y", "@modelcontextprotocol/client-sse"],
-        env: {
-          MCP_SERVER_URL: `${baseUrl}/sse`
-        }
-      }
-    }
-  };
-
-  return `
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Opendoor MCP Server</title>
-    <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 20px; background: #f5f5f5; }
-        .container { max-width: 1200px; margin: 0 auto; background: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-        h1 { color: #2c3e50; border-bottom: 3px solid #3498db; padding-bottom: 10px; }
-        h2 { color: #34495e; margin-top: 30px; }
-        .config-section { background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #3498db; }
-        pre { background: #2c3e50; color: #ecf0f1; padding: 15px; border-radius: 5px; overflow-x: auto; font-size: 14px; line-height: 1.4; }
-        .copy-btn { background: #3498db; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; margin-top: 10px; transition: all 0.3s; }
-        .copy-btn:hover { background: #2980b9; transform: translateY(-1px); }
-        .feature { background: #e8f5e8; padding: 15px; margin: 10px 0; border-radius: 5px; border-left: 4px solid #27ae60; }
-        .endpoint { background: #fff3cd; padding: 10px; margin: 5px 0; border-radius: 4px; border-left: 3px solid #ffc107; }
-        .status { display: inline-block; padding: 4px 8px; border-radius: 12px; font-size: 12px; font-weight: bold; }
-        .status.healthy { background: #d4edda; color: #155724; }
-        .spec-table { width: 100%; border-collapse: collapse; margin: 20px 0; }
-        .spec-table th, .spec-table td { padding: 12px; text-align: left; border-bottom: 1px solid #ddd; }
-        .spec-table th { background: #f8f9fa; font-weight: 600; }
-        .spec-table tr:hover { background: #f8f9fa; }
-        .highlight { background: #e3f2fd; padding: 20px; border-radius: 8px; border-left: 4px solid #2196f3; margin: 20px 0; }
-        .badge { background: #6c757d; color: white; padding: 2px 6px; border-radius: 10px; font-size: 10px; margin-left: 8px; }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <h1>🚪 Opendoor MCP Server</h1>
-        <p><span class="status healthy">● RUNNING</span> Production-grade Model Context Protocol server</p>
-        
-        <h2>🔗 Connection Configuration</h2>
-        
-        <div class="config-section">
-            <h3>📟 Claude Desktop Configuration (Local)</h3>
-            <p>Add this to your Claude Desktop configuration file:</p>
-            <pre id="claude-config">{
-  "mcpServers": {
-    "opendoor": {
-      "command": "node",
-      "args": ["${process.cwd()}/dist/index.js"],
-      "env": {
-        "NODE_ENV": "development"
-      }
-    }
-  }
-}</pre>
-            <button class="copy-btn" onclick="copyToClipboard('claude-config')">Copy Claude Config</button>
-        </div>
-
-        <div class="config-section">
-            <h3>📟 STDIO Configuration</h3>
-            <p>For local development and testing:</p>
-            <pre id="stdio-config">${JSON.stringify(stdioConfig, null, 2)}</pre>
-            <button class="copy-btn" onclick="copyToClipboard('stdio-config')">Copy STDIO Config</button>
-        </div>
-
-        <div class="config-section">
-            <h3>🌐 SSE Configuration (Railway)</h3>
-            <p>For Railway production deployment:</p>
-            <pre id="sse-config">${JSON.stringify(sseConfig, null, 2)}</pre>
-            <button class="copy-btn" onclick="copyToClipboard('sse-config')">Copy SSE Config</button>
-            <p><strong>Note:</strong> Replace the URL with your actual Railway deployment URL</p>
-        </div>
-
-        <h2>🛠️ Available Tools</h2>
-        <div class="feature">
-            <strong>execute_code</strong> - Execute code in multiple languages with isolated environments
-        </div>
-        <div class="feature">
-            <strong>create_vscode_session</strong> - Launch VS Code development environments
-        </div>
-        <div class="feature">
-            <strong>create_playwright_session</strong> - Start browser automation sessions
-        </div>
-        <div class="feature">
-            <strong>manage_sessions</strong> - List, monitor, and cleanup active sessions
-            <span class="badge">MANAGEMENT</span>
-        </div>
-        <div class="feature">
-            <strong>system_health</strong> - Monitor system resources and service health
-            <span class="badge">MONITORING</span>
-        </div>
-
-        <h2>🌐 Supported Languages & Virtual Environments</h2>
-        <table class="spec-table">
-            <thead>
-                <tr>
-                    <th>Language</th>
-                    <th>Runtime</th>
-                    <th>Package Manager</th>
-                    <th>Isolation</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr><td>Python</td><td>Python 3.x</td><td>pip (isolated venv)</td><td>✅ Virtual Environment</td></tr>
-                <tr><td>JavaScript</td><td>Node.js</td><td>npm (isolated)</td><td>✅ Project Environment</td></tr>
-                <tr><td>TypeScript</td><td>Node.js + TypeScript</td><td>npm (isolated)</td><td>✅ Project Environment</td></tr>
-                <tr><td>Java</td><td>OpenJDK</td><td>Maven/Gradle</td><td>✅ Classpath Isolation</td></tr>
-                <tr><td>Rust</td><td>Rust + Cargo</td><td>Cargo (isolated)</td><td>✅ CARGO_HOME</td></tr>
-                <tr><td>Go</td><td>Go Modules</td><td>go mod (isolated)</td><td>✅ GOPATH Isolation</td></tr>
-                <tr><td>C/C++</td><td>GCC/G++</td><td>Build system</td><td>✅ Build Directory</td></tr>
-                <tr><td>PHP</td><td>PHP + Composer</td><td>Composer (isolated)</td><td>✅ Project Environment</td></tr>
-                <tr><td>Ruby</td><td>Ruby + Bundler</td><td>Bundler (isolated)</td><td>✅ Gem Environment</td></tr>
-                <tr><td>C#</td><td>.NET Core</td><td>NuGet</td><td>✅ Project Environment</td></tr>
-                <tr><td>Swift</td><td>Swift 5.x</td><td>Swift Package Manager</td><td>✅ Package Environment</td></tr>
-                <tr><td>Objective-C</td><td>Clang</td><td>Build system</td><td>✅ Build Directory</td></tr>
-                <tr><td>Perl</td><td>Perl + CPAN</td><td>cpanm (isolated)</td><td>✅ Local::Lib</td></tr>
-                <tr><td>Lua</td><td>Lua + LuaRocks</td><td>LuaRocks (isolated)</td><td>✅ Local Environment</td></tr>
-            </tbody>
-        </table>
-
-        <h2>🔒 Security Features</h2>
-        <div class="feature">
-            <strong>Process Isolation</strong> - Each execution runs in isolated processes
-        </div>
-        <div class="feature">
-            <strong>Virtual Environment Isolation</strong> - Language-specific dependency isolation
-        </div>
-        <div class="feature">
-            <strong>Resource Limits</strong> - Memory and CPU usage controls
-        </div>
-        <div class="feature">
-            <strong>Execution Timeouts</strong> - Prevent runaway processes
-        </div>
-        <div class="feature">
-            <strong>Code Validation</strong> - Security pattern detection
-        </div>
-
-        <h2>📊 System Status</h2>
-        <div id="status">Loading...</div>
-
-        <h2>🔍 API Endpoints</h2>
-        <div class="endpoint">GET /health - Server health status and metrics</div>
-        <div class="endpoint">GET /config/stdio - STDIO configuration for MCP clients</div>
-        <div class="endpoint">GET /sse - SSE transport endpoint for Railway deployment</div>
-
-        <h2>🚀 Railway Deployment</h2>
-        <div class="highlight">
-            <h3>Production Deployment Instructions</h3>
-            <ol>
-                <li>Deploy this repository to Railway</li>
-                <li>Set environment variables as needed</li>
-                <li>Use the SSE configuration above in your MCP client</li>
-                <li>The server automatically sets up isolated environments for all languages</li>
-            </ol>
-        </div>
-    </div>
-
-    <script>
-        function copyToClipboard(elementId) {
-            const element = document.getElementById(elementId);
-            const text = element.textContent;
-            navigator.clipboard.writeText(text).then(() => {
-                const btn = element.nextElementSibling;
-                const originalText = btn.textContent;
-                btn.textContent = 'Copied!';
-                btn.style.background = 'linear-gradient(145deg, #27ae60, #229954)';
-                setTimeout(() => {
-                    btn.textContent = originalText;
-                    btn.style.background = 'linear-gradient(145deg, #3498db, #2980b9)';
-                }, 2000);
-            });
-        }
-
-        // Load system status
-        fetch('/health')
-            .then(response => response.json())
-            .then(data => {
-                const services = Object.entries(data.services || {})
-                    .map(([key, value]) => \`<span class="badge">\${key}: \${typeof value === 'object' ? value.status : value}</span>\`)
-                    .join(' ');
-                
-                document.getElementById('status').innerHTML = \`
-                    <div class="feature">
-                        <strong>Status:</strong> <span class="status healthy">\${data.status}</span><br>
-                        <strong>Uptime:</strong> \${Math.floor(data.uptime || 0)}s<br>
-                        <strong>Memory:</strong> \${Math.round((data.memory?.rss || 0) / 1024 / 1024)}MB<br>
-                        <strong>Services:</strong> \${services}
-                    </div>
-                \`;
-            })
-            .catch(() => {
-                document.getElementById('status').innerHTML = \`
-                    <div class="feature">
-                        <strong>Status:</strong> <span class="status">Unable to fetch</span>
-                    </div>
-                \`;
-            });
-    </script>
-</body>
-</html>
-  `;
 }
 
 async function main(): Promise<void> {
@@ -479,21 +165,8 @@ async function main(): Promise<void> {
       process.exit(1);
     });
 
-    // Start web interface if in development, web mode, or Railway deployment
-    const isRailwayDeployment = process.env.RAILWAY_ENVIRONMENT || process.env.PORT;
-    const useWebInterface = process.env.NODE_ENV === 'development' || 
-                           process.env.WEB_INTERFACE === 'true' || 
-                           isRailwayDeployment;
-    
-    if (useWebInterface) {
-      const port = parseInt(process.env.PORT || '50063');
-      await startWebInterface(port);
-      logger.info(`📚 Web interface started on port ${port}`);
-      logger.info(`📚 Documentation: http://localhost:${port}`);
-    }
-
-    // Start the MCP server
-    logger.info('🎉 Starting Opendoor MCP Server with STDIO transport');
+    // Start the MCP server with STDIO transport
+    logger.info('🎉 Starting Opendoor MCP Server (STDIO mode)');
     logger.info('🔧 Multi-language code execution environment ready');
     logger.info('🖥️  VS Code integration enabled');
     logger.info('🎭 Playwright browser automation ready');
