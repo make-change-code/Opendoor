@@ -39,12 +39,12 @@ railway up
 ```bash
 # Pull and run the latest version
 docker run -d --name opendoor-mcp \
-  -p 3000:3000 -p 3001:3001 \
+  -p 50063:50063 \
   -e MCP_TRANSPORT=sse \
-  ghcr.io/openhands-mentat-cli/opendoor/opendoor-mcp:latest
+  ghcr.io/make-change-code/opendoor/opendoor-mcp:latest
 
-# Access documentation at http://localhost:3001
-# MCP endpoint available at http://localhost:3000/sse
+# Access documentation at http://localhost:50063
+# MCP endpoint available at http://localhost:50063/sse
 ```
 
 ### Using Docker Compose
@@ -61,33 +61,30 @@ docker-compose -f docker-compose.production.yml up -d
 
 ### For Claude Desktop, ChatGPT, and other MCP clients:
 
-**SSE Configuration** (Web-based):
+**OpenHands SSE Configuration**:
 ```json
 {
-  "mcpServers": {
-    "opendoor": {
-      "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-everything"],
-      "env": {
-        "MCP_SERVER_URL": "http://localhost:3000/sse"
-      }
-    }
-  }
+  "sse_servers": [
+    "http://localhost:50063/sse"
+  ],
+  "stdio_servers": []
 }
 ```
 
-**STDIO Configuration** (Command-line):
+**OpenHands STDIO Configuration**:
 ```json
 {
-  "mcpServers": {
-    "opendoor": {
+  "sse_servers": [],
+  "stdio_servers": [
+    {
+      "name": "opendoor",
       "command": "docker",
       "args": [
-        "run", "-i", "--rm",
-        "ghcr.io/openhands-mentat-cli/opendoor/opendoor-mcp:latest"
+        "run", "-i", "--rm", "-p", "50063:50063",
+        "ghcr.io/make-change-code/opendoor/opendoor-mcp:latest"
       ]
     }
-  }
+  ]
 }
 ```
 

@@ -1,113 +1,21 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Copy, Check, Server, Code, Globe, Shield, Cpu, HardDrive, 
-  BookOpen, Terminal, MonitorSpeaker, Zap, Lock, Database,
-  Play, Settings, FileCode, Layers, ExternalLink, ChevronDown,
-  Github, Heart, Star, Users, Activity, CheckCircle, ArrowRight
-} from 'lucide-react';
-import { CopyToClipboard } from 'react-copy-to-clipboard';
-import { Light as SyntaxHighlighter } from 'react-syntax-highlighter';
-import json from 'react-syntax-highlighter/dist/esm/languages/hljs/json';
-import javascript from 'react-syntax-highlighter/dist/esm/languages/hljs/javascript';
-import python from 'react-syntax-highlighter/dist/esm/languages/hljs/python';
-import { atomOneDark } from 'react-syntax-highlighter/dist/esm/styles/hljs';
-import './App.css';
-import { DocSection } from './components/DocSection';
 
-SyntaxHighlighter.registerLanguage('json', json);
-SyntaxHighlighter.registerLanguage('javascript', javascript);
-SyntaxHighlighter.registerLanguage('python', python);
-
-interface McpConfig {
-  sse_servers: string[];
-  stdio_servers: Array<{
-    name: string;
-    command: string;
-    args: string[];
-  }>;
-  capabilities: {
-    tools: any[];
-    sessions: any;
-    languages: string[];
-    memory_per_session: string;
-    isolation: string;
-    security: any;
-  };
-  endpoints: {
-    base: string;
-    sse: string;
-    stdio: string;
-    health: string;
-    sessions: string;
-    config: string;
-  };
+interface HealthStatus {
+  status: string;
+  uptime: number;
+  memory: any;
+  services: any;
 }
 
 function App() {
-  const [config, setConfig] = useState<McpConfig | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
-  const [healthStatus, setHealthStatus] = useState<any>(null);
-  const [activeSection, setActiveSection] = useState('overview');
+  const [healthStatus, setHealthStatus] = useState<HealthStatus | null>(null);
+  const [copied, setCopied] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchConfig();
     fetchHealthStatus();
-    
-    // Refresh health status every 30 seconds
     const interval = setInterval(fetchHealthStatus, 30000);
     return () => clearInterval(interval);
   }, []);
-
-  const fetchConfig = async () => {
-    try {
-      const response = await fetch('/config/stdio');
-      if (!response.ok) {
-        throw new Error('Failed to fetch configuration');
-      }
-      const stdioConfig = await response.json();
-      
-      // Create a comprehensive config object for the frontend
-      const data = {
-        stdio_servers: [stdioConfig.mcpServers.opendoor],
-        capabilities: {
-          tools: [
-            { name: 'execute_code', description: 'Execute code in isolated virtual environments' },
-            { name: 'create_vscode_session', description: 'Launch VS Code development environments' },
-            { name: 'create_playwright_session', description: 'Browser automation with Playwright' },
-            { name: 'manage_sessions', description: 'Session lifecycle management' },
-            { name: 'system_health', description: 'System monitoring and diagnostics' }
-          ],
-          languages: [
-            'Python', 'JavaScript', 'TypeScript', 'Java', 'Rust', 'Go', 
-            'C', 'C++', 'C#', 'PHP', 'Ruby', 'Perl', 'Lua', 'Swift', 'Objective-C'
-          ],
-          memory_per_session: 'Up to 8GB configurable',
-          isolation: 'Virtual environments with complete dependency isolation',
-          security: {
-            process_isolation: true,
-            virtual_environments: true,
-            resource_limits: true,
-            execution_timeouts: true,
-            code_validation: true
-          }
-        },
-        endpoints: {
-          base: window.location.origin,
-          stdio: '/config/stdio',
-          health: '/health',
-          sse: '/sse'
-        }
-      };
-      
-      setConfig(data);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unknown error');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const fetchHealthStatus = async () => {
     try {
@@ -121,104 +29,226 @@ function App() {
     }
   };
 
-  const handleCopy = () => {
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+  const copyToClipboard = (text: string, type: string) => {
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(type);
+      setTimeout(() => setCopied(null), 2000);
+    });
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
-        <div className="text-white text-xl">Loading MCP Configuration...</div>
-      </div>
-    );
-  }
+  const sseConfig = {
+    sse_servers: ["http://localhost:50063/sse"],
+    stdio_servers: []
+  };
 
-  if (error) {
-    return (
-      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
-        <div className="text-red-400 text-xl">Error: {error}</div>
-      </div>
-    );
-  }
-
-  const configJson = JSON.stringify(config, null, 2);
-
-  const navigationSections = [
-    { id: 'overview', title: 'Overview', icon: BookOpen },
-    { id: 'getting-started', title: 'Getting Started', icon: Play },
-    { id: 'tools', title: 'Available Tools', icon: Settings },
-    { id: 'languages', title: 'Languages', icon: Code },
-    { id: 'sessions', title: 'Session Types', icon: Layers },
-    { id: 'configuration', title: 'Configuration', icon: FileCode },
-    { id: 'examples', title: 'Examples', icon: Terminal },
-    { id: 'api', title: 'API Reference', icon: Globe }
-  ];
+  const stdioConfig = {
+    sse_servers: [],
+    stdio_servers: [{
+      name: "opendoor",
+      command: "docker",
+      args: [
+        "run", "-i", "--rm", "-p", "50063:50063",
+        "ghcr.io/make-change-code/opendoor-opendoor-mcp:latest"
+      ]
+    }]
+  };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-purple-900 text-white">
-      {/* Navigation Header */}
-      <header className="bg-black/20 backdrop-blur-lg border-b border-white/10 sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <div className="flex items-center space-x-4">
-              <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-500 rounded-lg flex items-center justify-center">
-                  <Server className="h-6 w-6 text-white" />
-                </div>
-                <div>
-                  <h1 className="text-xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
-                    Opendoor MCP
-                  </h1>
-                  <p className="text-xs text-gray-400">LLM Multi-Container Platform</p>
-                </div>
-              </div>
+    <div style={{ 
+      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+      margin: 0,
+      padding: '20px',
+      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+      minHeight: '100vh',
+      color: 'white'
+    }}>
+      <div style={{
+        maxWidth: '1200px',
+        margin: '0 auto',
+        background: 'rgba(255,255,255,0.1)',
+        padding: '30px',
+        borderRadius: '15px',
+        backdropFilter: 'blur(10px)',
+        boxShadow: '0 8px 32px rgba(0,0,0,0.3)'
+      }}>
+        <div style={{ textAlign: 'center', marginBottom: '40px' }}>
+          <h1 style={{ 
+            fontSize: '3rem', 
+            margin: '0 0 10px 0',
+            background: 'linear-gradient(45deg, #fff, #f0f0f0)',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent'
+          }}>
+            🚪 Opendoor MCP Server
+          </h1>
+          <p style={{ fontSize: '1.2rem', opacity: 0.9 }}>
+            OpenHands Configuration Interface
+          </p>
+          {healthStatus && (
+            <div style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              background: healthStatus.status === 'healthy' ? 'rgba(0,255,0,0.2)' : 'rgba(255,255,0,0.2)',
+              padding: '8px 16px',
+              borderRadius: '20px',
+              border: `1px solid ${healthStatus.status === 'healthy' ? '#00ff00' : '#ffff00'}`,
+              marginTop: '10px'
+            }}>
+              <div style={{
+                width: '8px',
+                height: '8px',
+                borderRadius: '50%',
+                background: healthStatus.status === 'healthy' ? '#00ff00' : '#ffff00',
+                marginRight: '8px'
+              }}></div>
+              <span>Status: {healthStatus.status.toUpperCase()}</span>
             </div>
-            
-            <nav className="hidden md:flex space-x-1">
-              {navigationSections.map((section) => (
-                <button
-                  key={section.id}
-                  onClick={() => setActiveSection(section.id)}
-                  className={`px-3 py-2 rounded-lg text-sm font-medium transition-all ${
-                    activeSection === section.id
-                      ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30'
-                      : 'text-gray-300 hover:bg-white/10 hover:text-white'
-                  }`}
-                >
-                  <section.icon className="w-4 h-4 inline mr-2" />
-                  {section.title}
-                </button>
-              ))}
-            </nav>
+          )}
+        </div>
 
-            {healthStatus && (
-              <div className={`flex items-center space-x-2 px-3 py-1 rounded-full text-sm ${
-                healthStatus.status === 'healthy' ? 'bg-green-500/20 text-green-300 border border-green-500/30' :
-                healthStatus.status === 'degraded' ? 'bg-yellow-500/20 text-yellow-300 border border-yellow-500/30' :
-                'bg-red-500/20 text-red-300 border border-red-500/30'
-              }`}>
-                <div className={`w-2 h-2 rounded-full ${
-                  healthStatus.status === 'healthy' ? 'bg-green-400' :
-                  healthStatus.status === 'degraded' ? 'bg-yellow-400' :
-                  'bg-red-400'
-                }`}></div>
-                <span className="capitalize">{healthStatus.status}</span>
-              </div>
-            )}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(500px, 1fr))', gap: '30px' }}>
+          <div style={{
+            background: 'rgba(255,255,255,0.1)',
+            padding: '25px',
+            borderRadius: '10px',
+            border: '1px solid rgba(255,255,255,0.2)'
+          }}>
+            <h2 style={{ color: '#4ade80', marginTop: 0 }}>🌐 SSE Configuration (Recommended)</h2>
+            <p style={{ opacity: 0.9, lineHeight: 1.6 }}>
+              Server-Sent Events for real-time streaming. Best for production OpenHands deployments.
+            </p>
+            <pre style={{
+              background: 'rgba(0,0,0,0.3)',
+              padding: '20px',
+              borderRadius: '8px',
+              overflow: 'auto',
+              fontSize: '14px',
+              border: '1px solid rgba(255,255,255,0.1)'
+            }}>
+              {JSON.stringify(sseConfig, null, 2)}
+            </pre>
+            <button
+              onClick={() => copyToClipboard(JSON.stringify(sseConfig, null, 2), 'sse')}
+              style={{
+                background: copied === 'sse' ? '#22c55e' : '#3b82f6',
+                color: 'white',
+                border: 'none',
+                padding: '10px 20px',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                marginTop: '15px',
+                fontSize: '14px',
+                transition: 'all 0.3s'
+              }}
+            >
+              {copied === 'sse' ? '✅ Copied!' : '📋 Copy SSE Config'}
+            </button>
+          </div>
+
+          <div style={{
+            background: 'rgba(255,255,255,0.1)',
+            padding: '25px',
+            borderRadius: '10px',
+            border: '1px solid rgba(255,255,255,0.2)'
+          }}>
+            <h2 style={{ color: '#f59e0b', marginTop: 0 }}>⚡ STDIO Configuration</h2>
+            <p style={{ opacity: 0.9, lineHeight: 1.6 }}>
+              Standard I/O transport via Docker. Good for local development and testing.
+            </p>
+            <pre style={{
+              background: 'rgba(0,0,0,0.3)',
+              padding: '20px',
+              borderRadius: '8px',
+              overflow: 'auto',
+              fontSize: '14px',
+              border: '1px solid rgba(255,255,255,0.1)'
+            }}>
+              {JSON.stringify(stdioConfig, null, 2)}
+            </pre>
+            <button
+              onClick={() => copyToClipboard(JSON.stringify(stdioConfig, null, 2), 'stdio')}
+              style={{
+                background: copied === 'stdio' ? '#22c55e' : '#f59e0b',
+                color: 'white',
+                border: 'none',
+                padding: '10px 20px',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                marginTop: '15px',
+                fontSize: '14px',
+                transition: 'all 0.3s'
+              }}
+            >
+              {copied === 'stdio' ? '✅ Copied!' : '📋 Copy STDIO Config'}
+            </button>
           </div>
         </div>
-      </header>
 
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <DocSection 
-          section={activeSection} 
-          config={config} 
-          onCopy={handleCopy}
-          copied={copied}
-        />
-      </main>
+        <div style={{
+          background: 'rgba(255,255,255,0.1)',
+          padding: '25px',
+          borderRadius: '10px',
+          border: '1px solid rgba(255,255,255,0.2)',
+          marginTop: '30px'
+        }}>
+          <h2 style={{ color: '#8b5cf6', marginTop: 0 }}>📊 Server Information</h2>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px' }}>
+            <div>
+              <h3 style={{ color: '#60a5fa', fontSize: '1.1rem' }}>🛠️ Available Tools</h3>
+              <ul style={{ listStyle: 'none', padding: 0 }}>
+                <li>• execute_code - Multi-language execution</li>
+                <li>• create_vscode_session - VS Code environments</li>
+                <li>• create_playwright_session - Browser automation</li>
+                <li>• manage_sessions - Session management</li>
+                <li>• system_health - Health monitoring</li>
+              </ul>
+            </div>
+            <div>
+              <h3 style={{ color: '#34d399', fontSize: '1.1rem' }}>🌐 Endpoints</h3>
+              <ul style={{ listStyle: 'none', padding: 0 }}>
+                <li>• Main: http://localhost:50063</li>
+                <li>• Health: /health</li>
+                <li>• SSE: /sse</li>
+                <li>• Config: /config/stdio</li>
+              </ul>
+            </div>
+            <div>
+              <h3 style={{ color: '#fbbf24', fontSize: '1.1rem' }}>📋 Languages (15)</h3>
+              <ul style={{ listStyle: 'none', padding: 0 }}>
+                <li>• Python, JavaScript, TypeScript</li>
+                <li>• Java, C, C++, C#, Rust, Go</li>
+                <li>• PHP, Ruby, Perl, Lua</li>
+                <li>• Swift, Objective-C</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <div style={{
+          background: 'rgba(255,255,255,0.1)',
+          padding: '25px',
+          borderRadius: '10px',
+          border: '1px solid rgba(255,255,255,0.2)',
+          marginTop: '30px'
+        }}>
+          <h2 style={{ color: '#f43f5e', marginTop: 0 }}>🚀 Usage Instructions</h2>
+          <ol style={{ lineHeight: 1.8 }}>
+            <li><strong>Copy</strong> one of the configurations above</li>
+            <li><strong>Add</strong> it to your OpenHands configuration</li>
+            <li><strong>Ensure</strong> both sse_servers and stdio_servers arrays are present</li>
+            <li><strong>Test</strong> the connection in OpenHands</li>
+          </ol>
+          <div style={{
+            background: 'rgba(59, 130, 246, 0.2)',
+            padding: '15px',
+            borderRadius: '8px',
+            border: '1px solid rgba(59, 130, 246, 0.3)',
+            marginTop: '20px'
+          }}>
+            <strong>💡 Important:</strong> OpenHands requires both sse_servers and stdio_servers arrays in the configuration, even if one is empty.
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

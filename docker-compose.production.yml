@@ -1,0 +1,75 @@
+version: '3.8'
+
+services:
+  # Main MCP Server
+  opendoor-mcp:
+    build:
+      context: .
+      dockerfile: Dockerfile.opendoor-mcp
+    ports:
+      - "50063:50063"
+    environment:
+      - NODE_ENV=production
+      - WEB_INTERFACE=true
+      - MCP_TRANSPORT=sse
+      - REDIS_URL=redis://redis:6379
+      - LOG_LEVEL=info
+      - HOST=0.0.0.0
+      - PORT=50063
+    volumes:
+      - mcp_sessions:/app/sessions
+      - mcp_venvs:/app/venvs
+      - mcp_logs:/app/logs
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:50063/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # Frontend for OpenHands configurations
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "50064:80"
+    environment:
+      - REACT_APP_MCP_SERVER_URL=http://localhost:50063
+    depends_on:
+      - opendoor-mcp
+    restart: unless-stopped
+
+  # Redis for session management
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    command: redis-server --save 60 1 --loglevel warning
+
+volumes:
+  mcp_sessions:
+    driver: local
+  mcp_venvs:
+    driver: local
+  mcp_logs:
+    driver: local
+  redis_data:
+    driver: local
+
+networks:
+  default:
+    driver: bridge

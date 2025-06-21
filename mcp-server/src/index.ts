@@ -486,7 +486,7 @@ async function main(): Promise<void> {
                            isRailwayDeployment;
     
     if (useWebInterface) {
-      const port = parseInt(process.env.PORT || '3000');
+      const port = parseInt(process.env.PORT || '50063');
       await startWebInterface(port);
       logger.info(`📚 Web interface started on port ${port}`);
       logger.info(`📚 Documentation: http://localhost:${port}`);
