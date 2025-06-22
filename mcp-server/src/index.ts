@@ -33,6 +33,18 @@ async function initializeServices(): Promise<ServiceContainer> {
   logger.info('🚀 Starting Opendoor MCP Server initialization...');
 
   try {
+    // Skip heavy initialization for faster startup if requested
+    if (process.env.SKIP_HEAVY_INIT === 'true') {
+      logger.info('⚡ Fast mode - skipping heavy service initialization');
+      return {
+        sessionManager: {} as SessionManager,
+        executionManager: {} as LocalExecutionManager,
+        securityManager: new SecurityManager(),
+        configService: new ConfigService(),
+        healthService: new HealthService()
+      };
+    }
+
     // Initialize services in parallel for faster boot time
     const [
       configService,
@@ -64,7 +76,7 @@ async function initializeServices(): Promise<ServiceContainer> {
   }
 }
 
-function createServer(): Server {
+function createServer(serviceContainer: ServiceContainer): Server {
   const server = new Server(
     {
       name: "opendoor-mcp",
@@ -92,27 +104,23 @@ function createServer(): Server {
 
   // Handle tool execution
   server.setRequestHandler(CallToolRequestSchema, async (request) => {
-    if (!services) {
-      throw new Error('Services not initialized');
-    }
-
     const { name, arguments: args } = request.params;
 
     switch (name) {
       case 'execute_code':
-        return await executeCodeTool.execute(args, services);
+        return await executeCodeTool.execute(args, serviceContainer);
       
       case 'create_vscode_session':
-        return await createVSCodeSessionTool.execute(args, services);
+        return await createVSCodeSessionTool.execute(args, serviceContainer);
       
       case 'create_playwright_session':
-        return await createPlaywrightSessionTool.execute(args, services);
+        return await createPlaywrightSessionTool.execute(args, serviceContainer);
       
       case 'manage_sessions':
-        return await manageSessionsTool.execute(args, services);
+        return await manageSessionsTool.execute(args, serviceContainer);
       
       case 'system_health':
-        return await systemHealthTool.execute(args, services);
+        return await systemHealthTool.execute(args, serviceContainer);
       
       default:
         throw new Error(`Unknown tool: ${name}`);
@@ -127,8 +135,8 @@ async function main(): Promise<void> {
     // Initialize services first
     services = await initializeServices();
 
-    // Create and configure MCP server
-    const server = createServer();
+    // Create and configure MCP server with initialized services
+    const server = createServer(services);
 
     // Graceful shutdown handler
     const gracefulShutdown = async (signal: string) => {
