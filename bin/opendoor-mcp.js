@@ -12,7 +12,7 @@ const mcpServerPath = join(__dirname, '..', 'dist', 'index.js');
 // Set environment variables for STDIO mode
 process.env.MCP_TRANSPORT = 'stdio';
 process.env.NODE_ENV = 'production';
-process.env.LOG_LEVEL = 'error';
+process.env.LOG_LEVEL = 'info';
 
 // Import and run the server directly
 import(mcpServerPath).catch((error) => {
